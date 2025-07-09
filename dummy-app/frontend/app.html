@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dummy App - Main</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding-top: 20px; }
+        nav { margin-bottom: 20px; }
+        nav a { margin: 0 15px; text-decoration: none; font-size: 1.2em; }
+        .content { border: 1px solid #ccc; border-radius: 5px; padding: 20px; display: inline-block; min-width: 300px; }
+        button { margin-top: 15px; }
+        pre { text-align: left; background-color: #f4f4f4; padding: 10px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>Application Avancée</h1>
+    <p>Cette page charge des données dynamiquement.</p>
+    <nav>
+        <a href="index.html">Retour à l'accueil</a>
+    </nav>
+
+    <h2>Liste des Produits (depuis la BDD)</h2>
+    <button id="loadProducts">Charger les Produits</button>
+    <table id="productsTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nom</th>
+                <th>Description</th>
+                <th>Prix</th>
+                <th>Date de création</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Les données des produits seront insérées ici -->
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h2>Ajouter un nouveau produit</h2>
+    <form id="addProductForm">
+        <label for="name">Nom:</label><br>
+        <input type="text" id="name" name="name" required><br>
+        <label for="description">Description:</label><br>
+        <textarea id="description" name="description" required></textarea><br>
+        <label for="price">Prix:</label><br>
+        <input type="number" id="price" name="price" step="0.01" required><br><br>
+        <button type="submit">Ajouter le produit</button>
+    </form>
+    <div id="formResponse"></div>
+
+
+    <script>
+        document.getElementById('loadProducts').addEventListener('click', fetchProducts);
+
+        // Fonction pour récupérer et afficher les produits
+        function fetchProducts() {
+            const tableBody = document.querySelector("#productsTable tbody");
+            tableBody.innerHTML = ''; // Vider le tableau avant de le remplir
+            fetch('https://app-dummy-backend-test-deploy.azurewebsites.net/api/products.php')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data && data.records && Array.isArray(data.records) && data.records.length > 0) {
+                        data.records.forEach(product => {
+                            const row = `<tr>
+                                <td>${product.id}</td>
+                                <td>${product.name}</td>
+                                <td>${product.description || 'N/A'}</td>
+                                <td>${product.price}</td>
+                                <td>${product.created_at}</td>
+                            </tr>`;
+                            tableBody.innerHTML += row;
+                        });
+                    } else {
+                         tableBody.innerHTML = '<tr><td colspan="5">Aucun produit trouvé.</td></tr>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur lors de la récupération des produits:', error);
+                    document.querySelector("#productsTable tbody").innerHTML = '<tr><td colspan="5">Erreur de chargement des produits.</td></tr>';
+                });
+        }
+
+        // Gérer la soumission du formulaire d'ajout
+        document.getElementById('addProductForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('name').value;
+            const description = document.getElementById('description').value;
+            const price = document.getElementById('price').value;
+            const formResponse = document.getElementById('formResponse');
+
+            const productData = {
+                name: name,
+                description: description,
+                price: parseFloat(price)
+            };
+
+            fetch('https://app-dummy-backend-test-deploy.azurewebsites.net/api/add_product.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(productData)
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json().then(data => ({ success: true, data }));
+                } else {
+                    return response.json().then(data => ({ success: false, data }));
+                }
+            })
+            .then(result => {
+                formResponse.textContent = 'Réponse: ' + result.data.message;
+                if (result.success) {
+                    document.getElementById('addProductForm').reset();
+                    fetchProducts(); // Recharger la liste des produits
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors de l\'ajout du produit:', error);
+                formResponse.textContent = 'Erreur lors de l\'envoi du formulaire.';
+            });
+        });
+
+    </script>
+</body>
+</html>
